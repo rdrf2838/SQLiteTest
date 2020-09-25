@@ -1,4 +1,4 @@
-package com.example.sqlitetest;
+package com.example.sqlitetest.mainActivity;
 
 import android.content.Context;
 import android.content.Intent;
@@ -10,13 +10,18 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.sqlitetest.displayContactActivity.DisplayContactActivity;
+import com.example.sqlitetest.R;
+import com.example.sqlitetest.utility.Contact;
+import com.example.sqlitetest.utility.Helper;
+
 import java.util.List;
 
-public class ContactListAdapter extends RecyclerView.Adapter<ContactListAdapter.ContactListViewHolder> {
+public class MainContactListAdapter extends RecyclerView.Adapter<MainContactListAdapter.ContactListViewHolder> {
     public static final String EXTRA_MESSAGE = "com.example.sqlitetest.MESSAGE";
     static List<Contact> contactList;
     Context context;
-    public ContactListAdapter(Context ct, List<Contact> cL) {
+    public MainContactListAdapter(Context ct, List<Contact> cL) {
         context = ct;
         contactList = cL;
     }
@@ -35,7 +40,7 @@ public class ContactListAdapter extends RecyclerView.Adapter<ContactListAdapter.
     @Override
     public void onBindViewHolder(@NonNull ContactListViewHolder holder, int position) {
         holder.name.setText(contactList.get(position).getName());
-        holder.number.setText(contactList.get(position).getPhoneNumber());
+        holder.lastmodified.setText(Helper.unixToHMSDMY(contactList.get(position).getLastmodified()));
         holder.setPos(position);
     }
 
@@ -45,7 +50,7 @@ public class ContactListAdapter extends RecyclerView.Adapter<ContactListAdapter.
     }
 
     public class ContactListViewHolder extends RecyclerView.ViewHolder {
-        TextView name, number;
+        TextView name, lastmodified;
         int pos;
         public void setPos(int position) {
             this.pos = position;
@@ -54,7 +59,8 @@ public class ContactListAdapter extends RecyclerView.Adapter<ContactListAdapter.
         public ContactListViewHolder(@NonNull View itemView) {
             super(itemView);
             name = itemView.findViewById(R.id.name);
-            number = itemView.findViewById((R.id.phone_number));
+            lastmodified = itemView.findViewById(R.id.lastModified);
+
             itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
