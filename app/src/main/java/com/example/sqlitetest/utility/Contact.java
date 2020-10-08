@@ -7,7 +7,7 @@ public class Contact {
     int _id;
     String _name;
     int _lastmodified;
-    List<String> _descriptions;
+    List<Description> _descriptions;
 
 
     public Contact(){}
@@ -17,7 +17,7 @@ public class Contact {
         this._name = name;
     }
 
-    public Contact(int id, String name, int lastmodified, List<String> descriptions){
+    public Contact(int id, String name, int lastmodified, List<Description> descriptions){
         this._id = id;
         this._name = name;
         this._lastmodified = lastmodified;
@@ -52,15 +52,21 @@ public class Contact {
         this._name = name;
     }
 
-    public void setDescriptions(List<String> descriptions) {
+    public void setDescriptions(List<Description> descriptions) {
         this._descriptions = descriptions;
     }
 
-    public void addDescription(String description) {
+    public void addDescription(Description description) {
         this._descriptions.add(description);
     }
 
-    public List<String> getDescriptions() {
+    public void removeDescriptions(List<Description> descriptions) {
+        for(Description currDescription : descriptions) {
+            _descriptions.remove(currDescription);
+        }
+    }
+
+    public List<Description> getDescriptions() {
         return _descriptions;
     }
 }

@@ -23,6 +23,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     private static final String TABLE_DESCRIPTIONS = "descriptions";
     //KEY_ID
     private static final String DESCRIPTION = "description";
+    //KEY_LASTMODIFIED
 
     public DatabaseHandler(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -41,9 +42,10 @@ public class DatabaseHandler extends SQLiteOpenHelper {
 
         String CREATE_DESCRIPTIONS_TABLE =
                 "CREATE TABLE IF NOT EXISTS " + TABLE_DESCRIPTIONS +
-                        "("
-                        + KEY_ID + " TEXT," +
-                        DESCRIPTION + " TEXT" +
+                        "(" +
+                        KEY_ID + " TEXT," +
+                        DESCRIPTION + " TEXT," +
+                        KEY_LASTMODIFIED + " INT" +
                         ")";
         db.execSQL(CREATE_DESCRIPTIONS_TABLE);
     }
@@ -77,19 +79,30 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         db.close(); // Closing database connection
     }
 
-//    Contact getContact(int id) {
-//        SQLiteDatabase db = this.getReadableDatabase();
-//
-//        Cursor cursor = db.query(TABLE_CONTACTS, new String[] { KEY_ID,
-//                        KEY_NAME, KEY_LASTMODIFIED}, KEY_ID + "=?",
-//                new String[] { String.valueOf(id) }, null, null, null, null);
-//        if (cursor != null)
-//            cursor.moveToFirst();
-//
-//        Contact contact = new Contact(Integer.parseInt(cursor.getString(0)),
-//                cursor.getString(1), Integer.parseInt(cursor.getString(2)));
-//        return contact;
-//    }
+    public Contact getContact(int id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        //query 1: get contact from table_contacts
+        String selectQuery = "SELECT  * FROM " + TABLE_CONTACTS + " WHERE " + KEY_ID + " = " + id;
+        Cursor cursor = db.rawQuery(selectQuery, null);
+        if (cursor != null)
+            cursor.moveToFirst();
+
+        //query 2: get contact's descriptions from table_descriptions
+        String FILTER_DESCRIPTIONS = "SELECT " + DESCRIPTION +","+KEY_LASTMODIFIED+ " FROM " + TABLE_DESCRIPTIONS + " WHERE " + KEY_ID + " = " +id + " ORDER BY "+ KEY_LASTMODIFIED +" DESC";
+        Cursor cursor2 = db.rawQuery(FILTER_DESCRIPTIONS, null);
+        List<Description> descriptionList = new ArrayList<Description>();
+        if(cursor2.moveToFirst()) {
+            do {
+                Description description = new Description(cursor2.getString(0), Integer.parseInt(cursor2.getString(1)) );
+                descriptionList.add(description);
+            } while (cursor2.moveToNext());
+        }
+
+        Contact contact = new Contact(Integer.parseInt(cursor.getString(0)),
+                cursor.getString(1), Integer.parseInt(cursor.getString(2)), descriptionList);
+        return contact;
+    }
 
     public List<Contact> getAllContacts() {
         List<Contact> contactList = new ArrayList<Contact>();
@@ -107,13 +120,48 @@ public class DatabaseHandler extends SQLiteOpenHelper {
                 contact.setLastmodified(Integer.parseInt(cursor.getString(2)));
 
 
-                List<String> descriptionList = new ArrayList<String>();
+                List<Description> descriptionList = new ArrayList<Description>();
 
-                String FILTER_DESCRIPTIONS = "SELECT " + DESCRIPTION + " FROM " + TABLE_DESCRIPTIONS + " WHERE " + KEY_ID + " = " +id;
+                String FILTER_DESCRIPTIONS = "SELECT " + DESCRIPTION +","+KEY_LASTMODIFIED+ " FROM " + TABLE_DESCRIPTIONS + " WHERE " + KEY_ID + " = " +id + " ORDER BY "+ KEY_LASTMODIFIED +" DESC";
+                Cursor cursor2 = db.rawQuery(FILTER_DESCRIPTIONS, null);
+                        if (cursor2.moveToFirst()) {
+                            do {
+                                Description description = new Description(cursor2.getString(0),Integer.parseInt(cursor2.getString(1)));
+                                descriptionList.add(description);
+                    } while (cursor2.moveToNext());
+                }
+                contact.setDescriptions(descriptionList);
+                contactList.add(contact);
+
+            } while (cursor.moveToNext());
+        }
+
+        return contactList;
+    }
+
+    public List<Contact> getAllContacts(String query) {
+        List<Contact> contactList = new ArrayList<Contact>();
+        String selectQuery = "SELECT  * FROM " + TABLE_CONTACTS + " WHERE "+KEY_NAME + " = " +  query + "%' ORDER BY "+ KEY_LASTMODIFIED +" DESC";
+        SQLiteDatabase db = this.getWritableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery, null);
+
+        if (cursor.moveToFirst()) {
+            do {
+                int id = Integer.parseInt(cursor.getString(0));
+                Contact contact = new Contact();
+                contact.setID(Integer.parseInt(cursor.getString(0)));
+                contact.setName(cursor.getString(1));
+                contact.setLastmodified(Integer.parseInt(cursor.getString(2)));
+
+
+                List<Description> descriptionList = new ArrayList<Description>();
+
+                String FILTER_DESCRIPTIONS = "SELECT " + DESCRIPTION +","+KEY_LASTMODIFIED+ " FROM " + TABLE_DESCRIPTIONS + " WHERE " + KEY_ID + " = " +id + " ORDER BY "+ KEY_LASTMODIFIED +" DESC";
                 Cursor cursor2 = db.rawQuery(FILTER_DESCRIPTIONS, null);
                 if (cursor2.moveToFirst()) {
                     do {
-                        descriptionList.add(cursor2.getString(0));
+                        Description description = new Description(cursor2.getString(0),Integer.parseInt(cursor2.getString(1)));
+                        descriptionList.add(description);
                     } while (cursor2.moveToNext());
                 }
                 contact.setDescriptions(descriptionList);
@@ -129,15 +177,22 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
 
         ContentValues values = new ContentValues();
+        values.put(KEY_ID, contact.getID());
         values.put(KEY_NAME, contact.getName());
         values.put(KEY_LASTMODIFIED, Helper.getUnixTime());
 
-        ContentValues values2 = new ContentValues();
-        values2.put(KEY_ID, contact.getID());
-        List<String> descriptions = contact.getDescriptions();
-        values2.put(DESCRIPTION, descriptions.get(descriptions.size() - 1));
+        //clear old descriptions, then add again
+        List<Description> descriptions = contact.getDescriptions();
+        db.delete(TABLE_DESCRIPTIONS, KEY_ID + " =? ", new String[] { String.valueOf(contact.getID()) });
+        for(int i = 0; i < descriptions.size(); i++) {
+            Description description = descriptions.get(i);
+            ContentValues values2 = new ContentValues();
+            values2.put(KEY_ID, contact.getID());
+            values2.put(DESCRIPTION, description._content);
+            values2.put(KEY_LASTMODIFIED, description._lastmodified);
+            db.insert(TABLE_DESCRIPTIONS, null, values2);
+        }
 
-        db.insert(TABLE_DESCRIPTIONS, null, values2);
         // updating rows
         return db.update(TABLE_CONTACTS, values, KEY_ID + " = ?",
                 new String[] { String.valueOf(contact.getID()) });
@@ -146,6 +201,8 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     public void deleteContact(Contact contact) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_CONTACTS, KEY_ID + " = ?",
+                new String[] { String.valueOf(contact.getID()) });
+        db.delete(TABLE_DESCRIPTIONS, KEY_ID + " = ?",
                 new String[] { String.valueOf(contact.getID()) });
         db.close();
     }
